@@ -78,19 +78,19 @@ export function AllocationBarChart({ data, currency }: AllocationBarChartProps) 
             <BarChart
               data={filteredData}
               layout="vertical"
-              margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
+              margin={{ top: 5, right: 10, left: 5, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
               <XAxis
                 type="number"
                 tickFormatter={(value) => formatCurrency(value, currency)}
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 10 }}
               />
               <YAxis
                 type="category"
                 dataKey="name"
-                width={75}
-                tick={{ fontSize: 12 }}
+                width={60}
+                tick={{ fontSize: 10 }}
               />
               <Tooltip content={<CustomTooltip currency={currency} />} />
               <Bar dataKey="value" radius={[0, 4, 4, 0]}>

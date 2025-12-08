@@ -136,7 +136,7 @@ export function CategoryRow({
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={handleSave}
             onKeyDown={handleKeyDown}
-            className="w-24 sm:w-28 text-right text-sm"
+            className="w-20 sm:w-28 text-right text-sm"
             min="0"
             step="0.01"
             autoFocus

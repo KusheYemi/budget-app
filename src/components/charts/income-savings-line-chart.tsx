@@ -84,19 +84,20 @@ export function IncomeSavingsLineChart({
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="name"
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 10 }}
                 angle={-45}
                 textAnchor="end"
                 height={60}
               />
               <YAxis
                 tickFormatter={(value) => formatCurrency(value, currency)}
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 10 }}
+                width={50}
               />
               <Tooltip content={<CustomTooltip currency={currency} />} />
               <Legend />
