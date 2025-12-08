@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { IncomeSavingsLineChart } from "@/components/charts/income-savings-line-chart";
 import { AllocationBarChart } from "@/components/charts/allocation-bar-chart";
 import {
@@ -27,6 +29,16 @@ export function InsightsContent({
   email,
 }: InsightsContentProps) {
   const { year, month } = getCurrentMonth();
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 12;
+
+  // Reverse and paginate monthly history
+  const reversedHistory = [...data.monthlyTrends].reverse();
+  const totalPages = Math.ceil(reversedHistory.length / itemsPerPage);
+  const paginatedHistory = reversedHistory.slice(
+    currentPage * itemsPerPage,
+    (currentPage + 1) * itemsPerPage
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -151,10 +163,53 @@ export function InsightsContent({
         {/* Monthly History */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Monthly History</CardTitle>
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span>Monthly History</span>
+              {totalPages > 1 && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            {/* Mobile: Cards */}
+            <div className="sm:hidden space-y-3">
+              {paginatedHistory.map((m) => (
+                <div
+                  key={`mobile-${m.year}-${m.month}`}
+                  className="p-3 border rounded-lg space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">{formatMonth(m.year, m.month)}</p>
+                    <span
+                      className={`text-sm font-medium ${
+                        m.savingsRate < 0.2 ? "text-warning" : "text-savings"
+                      }`}
+                    >
+                      {formatPercentage(m.savingsRate * 100, 0)} saved
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <p className="text-muted-foreground text-xs">Income</p>
+                      <p className="font-medium">{formatCurrency(m.income, currency)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Savings</p>
+                      <p className="font-medium text-savings">{formatCurrency(m.savingsAmount, currency)}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-muted-foreground text-xs">Total Allocated</p>
+                      <p className="font-medium">{formatCurrency(m.totalAllocated, currency)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: Table */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
@@ -166,9 +221,9 @@ export function InsightsContent({
                   </tr>
                 </thead>
                 <tbody>
-                  {[...data.monthlyTrends].reverse().map((m) => (
+                  {paginatedHistory.map((m) => (
                     <tr
-                      key={`${m.year}-${m.month}`}
+                      key={`desktop-${m.year}-${m.month}`}
                       className="border-b hover:bg-muted/50"
                     >
                       <td className="py-3 px-2 font-medium">
@@ -199,6 +254,31 @@ export function InsightsContent({
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground px-2">
+                  {currentPage + 1} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage === totalPages - 1}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
