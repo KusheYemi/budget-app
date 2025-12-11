@@ -30,7 +30,11 @@ export function MonthPicker({ year, month }: MonthPickerProps) {
       newMonth = 12;
       newYear -= 1;
     }
-    router.push(`/budget/${newYear}/${newMonth}`);
+    if (isCurrentMonth(newYear, newMonth)) {
+      router.push("/dashboard");
+    } else {
+      router.push(`/budget/${newYear}/${newMonth}`);
+    }
   }
 
   function goToNextMonth() {
@@ -47,13 +51,17 @@ export function MonthPicker({ year, month }: MonthPickerProps) {
     ) {
       return;
     }
-    router.push(`/budget/${newYear}/${newMonth}`);
+    if (isCurrentMonth(newYear, newMonth)) {
+      router.push("/dashboard");
+    } else {
+      router.push(`/budget/${newYear}/${newMonth}`);
+    }
   }
 
   function goToMonth(value: string) {
     const [y, m] = value.split("-").map(Number);
     if (y === current.year && m === current.month) {
-      router.push("/");
+      router.push("/dashboard");
     } else {
       router.push(`/budget/${y}/${m}`);
     }
