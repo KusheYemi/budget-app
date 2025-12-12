@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Lock } from "lucide-react";
+import { Eye, EyeOff, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { updateCurrency, updatePassword } from "@/app/actions/auth";
 import { CURRENCIES, type CurrencyCode } from "@/lib/validators";
@@ -129,6 +129,7 @@ export function SettingsContent({
             </div>
 
             <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {saving ? "Saving..." : "Save settings"}
             </Button>
           </CardContent>
@@ -216,6 +217,9 @@ export function SettingsContent({
               </div>
 
               <Button type="submit" disabled={changingPassword}>
+                {changingPassword && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 {changingPassword ? "Updating..." : "Update password"}
               </Button>
             </form>

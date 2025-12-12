@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +22,7 @@ interface UserMenuProps {
 export function UserMenu({ email }: UserMenuProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     // Mount guard to prevent hydration mismatch with DropdownMenu
@@ -29,6 +31,7 @@ export function UserMenu({ email }: UserMenuProps) {
   }, []);
 
   async function handleSignOut() {
+    setSigningOut(true);
     await signOut();
   }
 
@@ -78,8 +81,13 @@ export function UserMenu({ email }: UserMenuProps) {
           Insights
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-          Sign out
+        <DropdownMenuItem
+          onClick={handleSignOut}
+          className="text-destructive"
+          disabled={signingOut}
+        >
+          {signingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {signingOut ? "Signing out..." : "Sign out"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
