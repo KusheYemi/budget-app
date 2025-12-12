@@ -40,11 +40,13 @@ export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes that don't require authentication
-  const publicRoutes = ["/login", "/signup", "/auth/callback"];
-  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
+  const publicRoutePrefixes = ["/login", "/signup", "/auth/callback", "/reset-password"];
+  const isPublicRoute =
+    pathname === "/" ||
+    publicRoutePrefixes.some((route) => pathname.startsWith(route));
 
   // If user is not logged in and trying to access protected route
-  if (!user && !isPublicRoute && pathname !== "/") {
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
@@ -53,14 +55,14 @@ export default async function proxy(request: NextRequest) {
   // If user is logged in and trying to access auth pages
   if (user && (pathname === "/login" || pathname === "/signup")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
-  // Redirect root to login if not authenticated, or to dashboard if authenticated
-  if (pathname === "/" && !user) {
+  // Redirect root to dashboard if authenticated
+  if (pathname === "/" && user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 

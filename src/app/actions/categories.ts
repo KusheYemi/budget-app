@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { categorySchema } from "@/lib/validators";
+import { z } from "zod";
 
 export async function getCategories() {
   const supabase = await createClient();
@@ -28,12 +30,13 @@ export async function createCategory(name: string, color?: string) {
 
   if (!user) return { error: "Not authenticated" };
 
-  if (!name || name.trim().length === 0) {
-    return { error: "Category name is required" };
-  }
+  const parsed = categorySchema.safeParse({
+    name,
+    color: color ?? "#6366f1",
+  });
 
-  if (name.trim().length > 50) {
-    return { error: "Category name must be 50 characters or less" };
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid category" };
   }
 
   try {
@@ -46,8 +49,8 @@ export async function createCategory(name: string, color?: string) {
     const category = await prisma.category.create({
       data: {
         userId: user.id,
-        name: name.trim(),
-        color: color ?? "#6366f1",
+        name: parsed.data.name,
+        color: parsed.data.color,
         sortOrder: (lastCategory?.sortOrder ?? -1) + 1,
       },
     });
@@ -87,13 +90,30 @@ export async function updateCategory(
     return { error: "Cannot rename the Savings category" };
   }
 
+  const updates: { name?: string; color?: string } = {};
+
+  if (data.name !== undefined) {
+    const parsedName = categorySchema.shape.name.safeParse(data.name);
+    if (!parsedName.success) {
+      return { error: parsedName.error.issues[0]?.message ?? "Invalid name" };
+    }
+    updates.name = parsedName.data;
+  }
+
+  if (data.color !== undefined) {
+    const parsedColor = categorySchema.shape.color.safeParse(data.color);
+    if (!parsedColor.success) {
+      return {
+        error: parsedColor.error.issues[0]?.message ?? "Invalid color",
+      };
+    }
+    updates.color = parsedColor.data;
+  }
+
   try {
     await prisma.category.update({
       where: { id: categoryId },
-      data: {
-        name: data.name?.trim(),
-        color: data.color,
-      },
+      data: updates,
     });
 
     revalidatePath("/");
@@ -149,9 +169,14 @@ export async function reorderCategories(categoryIds: string[]) {
 
   if (!user) return { error: "Not authenticated" };
 
+  const idsParsed = z.array(z.string().uuid()).min(1).max(100).safeParse(categoryIds);
+  if (!idsParsed.success) {
+    return { error: "Invalid category order" };
+  }
+
   try {
     await prisma.$transaction(
-      categoryIds.map((id, index) =>
+      idsParsed.data.map((id, index) =>
         prisma.category.update({
           where: { id, userId: user.id },
           data: { sortOrder: index },

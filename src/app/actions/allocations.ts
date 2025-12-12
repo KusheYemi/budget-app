@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { isCurrentMonth } from "@/lib/utils";
 
 export async function getAllocations(budgetMonthId: string) {
   const supabase = await createClient();
@@ -152,6 +153,15 @@ export async function copyAllocationsFromPreviousMonth(
 
   if (!user) return { error: "Not authenticated" };
 
+  // Verify the target budget month belongs to the user (prevents IDOR)
+  const targetBudgetMonth = await prisma.budgetMonth.findFirst({
+    where: { id: toBudgetMonthId, userId: user.id },
+  });
+
+  if (!targetBudgetMonth) {
+    return { error: "Budget month not found" };
+  }
+
   // Get allocations from source month
   const sourceAllocations = await prisma.allocation.findMany({
     where: {
@@ -162,23 +172,24 @@ export async function copyAllocationsFromPreviousMonth(
   });
 
   try {
-    // Create allocations in target month
-    for (const allocation of sourceAllocations) {
-      await prisma.allocation.upsert({
-        where: {
-          budgetMonthId_categoryId: {
+    await prisma.$transaction(
+      sourceAllocations.map((allocation) =>
+        prisma.allocation.upsert({
+          where: {
+            budgetMonthId_categoryId: {
+              budgetMonthId: toBudgetMonthId,
+              categoryId: allocation.categoryId,
+            },
+          },
+          update: { amount: allocation.amount },
+          create: {
             budgetMonthId: toBudgetMonthId,
             categoryId: allocation.categoryId,
+            amount: allocation.amount,
           },
-        },
-        update: { amount: allocation.amount },
-        create: {
-          budgetMonthId: toBudgetMonthId,
-          categoryId: allocation.categoryId,
-          amount: allocation.amount,
-        },
-      });
-    }
+        })
+      )
+    );
 
     revalidatePath("/");
     return { success: true };
@@ -186,4 +197,51 @@ export async function copyAllocationsFromPreviousMonth(
     console.error("Error copying allocations:", e);
     return { error: "Failed to copy allocations" };
   }
+}
+
+export async function copyAllocationsFromPreviousMonthForBudget(
+  budgetMonthId: string
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+
+  const targetBudgetMonth = await prisma.budgetMonth.findFirst({
+    where: { id: budgetMonthId, userId: user.id },
+  });
+
+  if (!targetBudgetMonth) {
+    return { error: "Budget month not found" };
+  }
+
+  if (!isCurrentMonth(targetBudgetMonth.year, targetBudgetMonth.month)) {
+    return { error: "Cannot copy into a historical month" };
+  }
+
+  let prevYear = targetBudgetMonth.year;
+  let prevMonth = targetBudgetMonth.month - 1;
+  if (prevMonth < 1) {
+    prevMonth = 12;
+    prevYear -= 1;
+  }
+
+  const previousBudgetMonth = await prisma.budgetMonth.findFirst({
+    where: {
+      userId: user.id,
+      year: prevYear,
+      month: prevMonth,
+    },
+  });
+
+  if (!previousBudgetMonth) {
+    return { error: "No previous month found to copy from" };
+  }
+
+  return copyAllocationsFromPreviousMonth(
+    targetBudgetMonth.id,
+    previousBudgetMonth.id
+  );
 }

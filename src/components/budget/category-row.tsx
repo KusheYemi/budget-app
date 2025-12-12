@@ -18,6 +18,7 @@ import { updateAllocation } from "@/app/actions/allocations";
 import { deleteCategory } from "@/app/actions/categories";
 import type { CurrencyCode } from "@/lib/validators";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface CategoryRowProps {
   id: string;
@@ -79,11 +80,19 @@ export function CategoryRow({
     } else {
       // Revert on error
       onUpdate?.(id, amount);
+      toast.error("Failed to update allocation", {
+        description: result.error ?? "Please try again.",
+      });
     }
   }
 
   async function handleDelete() {
     if (isSavings) return;
+
+    const confirmed = confirm(
+      `Delete category "${name}"? This cannot be undone.`
+    );
+    if (!confirmed) return;
 
     setIsLoading(true);
     const result = await deleteCategory(id);
@@ -92,6 +101,11 @@ export function CategoryRow({
     if (result.success) {
       onDelete?.(id);
       onRefresh?.();
+      toast.success("Category deleted");
+    } else {
+      toast.error("Failed to delete category", {
+        description: result.error ?? "Please try again.",
+      });
     }
   }
 

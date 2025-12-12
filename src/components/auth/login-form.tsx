@@ -10,7 +10,6 @@ import {
   Mail,
   Lock,
   ArrowRight,
-  CheckCircle2,
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -23,7 +22,6 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   async function handleSubmit(formData: FormData) {
@@ -129,7 +127,7 @@ export function LoginForm() {
                 Password
               </Label>
               <Link
-                href="#"
+                href="/reset-password"
                 className="text-xs text-muted-foreground hover:text-primary transition-colors"
               >
                 Forgot password?
@@ -180,38 +178,6 @@ export function LoginForm() {
                 </span>
               </Button>
             </div>
-          </div>
-
-          {/* Remember Me */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={rememberMe ? "true" : "false"}
-              onClick={() => setRememberMe(!rememberMe)}
-              className={`w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center ${
-                rememberMe
-                  ? "bg-primary border-primary"
-                  : "border-border hover:border-primary/50"
-              }`}
-            >
-              {rememberMe && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                >
-                  <CheckCircle2 className="w-3 h-3 text-primary-foreground" />
-                </motion.div>
-              )}
-            </button>
-            <Label
-              htmlFor="remember"
-              className="text-sm text-muted-foreground cursor-pointer"
-              onClick={() => setRememberMe(!rememberMe)}
-            >
-              Remember me for 30 days
-            </Label>
           </div>
 
           {/* Submit Button */}

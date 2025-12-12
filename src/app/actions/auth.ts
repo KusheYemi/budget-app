@@ -2,19 +2,32 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CATEGORIES, getCurrentMonth } from "@/lib/utils";
+import {
+  signUpSchema,
+  signInSchema,
+  onboardingSchema,
+  type CurrencyCode,
+} from "@/lib/validators";
 
 export async function signUp(formData: FormData) {
   const supabase = await createClient();
 
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  const confirmPassword = formData.get("confirmPassword") as string;
+
+  const parsed = signUpSchema.safeParse({ email, password, confirmPassword });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid sign up data" };
+  }
 
   const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
+    email: parsed.data.email,
+    password: parsed.data.password,
   });
 
   if (error) {
@@ -47,10 +60,12 @@ export async function signIn(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  const parsed = signInSchema.safeParse({ email, password });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid sign in data" };
+  }
+
+  const { error } = await supabase.auth.signInWithPassword(parsed.data);
 
   if (error) {
     return { error: error.message };
@@ -123,7 +138,7 @@ export async function checkOnboardingStatus() {
 
 export async function completeOnboarding(data: {
   income: number;
-  currency: string;
+  currency: CurrencyCode | string;
 }) {
   const supabase = await createClient();
   const {
@@ -137,14 +152,25 @@ export async function completeOnboarding(data: {
   const { year, month } = getCurrentMonth();
 
   try {
+    const parsed = onboardingSchema.safeParse({
+      income: data.income,
+      currency: data.currency as CurrencyCode,
+    });
+
+    if (!parsed.success) {
+      return {
+        error: parsed.error.issues[0]?.message ?? "Invalid onboarding data",
+      };
+    }
+
     // Update or create user with currency
     await prisma.user.upsert({
       where: { id: user.id },
-      update: { currency: data.currency },
+      update: { currency: parsed.data.currency },
       create: {
         id: user.id,
         email: user.email!,
-        currency: data.currency,
+        currency: parsed.data.currency,
       },
     });
 
@@ -183,7 +209,7 @@ export async function completeOnboarding(data: {
         userId: user.id,
         year,
         month,
-        income: data.income,
+        income: parsed.data.income,
         savingsRate: 0.20,
       },
     });
@@ -194,4 +220,81 @@ export async function completeOnboarding(data: {
     console.error("Error completing onboarding:", e);
     return { error: "Failed to complete onboarding" };
   }
+}
+
+export async function updateCurrency(currency: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+
+  const parsedCurrency = onboardingSchema.shape.currency.safeParse(currency);
+  if (!parsedCurrency.success) {
+    return { error: "Invalid currency" };
+  }
+
+  try {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { currency: parsedCurrency.data },
+    });
+
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch (e) {
+    console.error("Error updating currency:", e);
+    return { error: "Failed to update currency" };
+  }
+}
+
+export async function sendPasswordResetEmail(email: string) {
+  const supabase = await createClient();
+
+  const parsedEmail = signInSchema.shape.email.safeParse(email);
+  if (!parsedEmail.success) {
+    return { error: parsedEmail.error.issues[0]?.message ?? "Invalid email" };
+  }
+
+  const headerStore = await headers();
+  const origin =
+    headerStore.get("origin") ??
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    "http://localhost:3000";
+
+  const { error } = await supabase.auth.resetPasswordForEmail(
+    parsedEmail.data,
+    {
+      redirectTo: `${origin}/auth/callback?next=/reset-password`,
+    }
+  );
+
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function updatePassword(password: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+
+  const parsedPassword = signUpSchema.shape.password.safeParse(password);
+  if (!parsedPassword.success) {
+    return {
+      error: parsedPassword.error.issues[0]?.message ?? "Invalid password",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password: parsedPassword.data,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/", "layout");
+  return { success: true };
 }

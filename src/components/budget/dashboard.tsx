@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition, useCallback, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { SummaryCard } from "./summary-card";
@@ -12,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AllocationPieChart } from "@/components/charts/allocation-pie-chart";
 import { AllocationBarChart } from "@/components/charts/allocation-bar-chart";
+import { toast } from "sonner";
 import {
   getCurrentMonth,
   isCurrentMonth,
@@ -21,6 +21,7 @@ import {
 import { getBudgetMonth } from "@/app/actions/budget";
 import { getCategories } from "@/app/actions/categories";
 import { getUserProfile } from "@/app/actions/auth";
+import { copyAllocationsFromPreviousMonthForBudget } from "@/app/actions/allocations";
 import type { CurrencyCode } from "@/lib/validators";
 import type { Category, Allocation, BudgetMonth } from "@prisma/client";
 
@@ -35,29 +36,46 @@ interface BudgetMonthData extends BudgetMonth {
 interface DashboardProps {
   initialYear?: number;
   initialMonth?: number;
+  initialData?: {
+    profile: Awaited<ReturnType<typeof getUserProfile>> | null;
+    budgetMonth: BudgetMonthData | null;
+    categories: Category[];
+  };
 }
 
-export function Dashboard({ initialYear, initialMonth }: DashboardProps) {
-  const router = useRouter();
+export function Dashboard({ initialYear, initialMonth, initialData }: DashboardProps) {
   const [isPending, startTransition] = useTransition();
   const current = getCurrentMonth();
   const year = initialYear ?? current.year;
   const month = initialMonth ?? current.month;
   const isReadOnly = !isCurrentMonth(year, month);
 
-  const [loading, setLoading] = useState(true);
-  const [budgetMonth, setBudgetMonth] = useState<BudgetMonthData | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [currency, setCurrency] = useState<CurrencyCode>("SLE");
-  const [email, setEmail] = useState<string>("");
+  const [loading, setLoading] = useState(!initialData);
+  const [budgetMonth, setBudgetMonth] = useState<BudgetMonthData | null>(
+    (initialData?.budgetMonth as BudgetMonthData) ?? null
+  );
+  const [categories, setCategories] = useState<Category[]>(
+    initialData?.categories ?? []
+  );
+  const [currency, setCurrency] = useState<CurrencyCode>(
+    (initialData?.profile?.currency as CurrencyCode) ?? "SLE"
+  );
+  const [email, setEmail] = useState<string>(
+    initialData?.profile?.email ?? ""
+  );
 
   const [showIncomeDialog, setShowIncomeDialog] = useState(false);
   const [showSavingsDialog, setShowSavingsDialog] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
 
   // Optimistic allocations for instant UI updates
   const [optimisticAllocations, setOptimisticAllocations] = useState<
     AllocationWithCategory[]
-  >([]);
+  >(
+    (initialData?.budgetMonth?.allocations as AllocationWithCategory[]) ?? []
+  );
+
+  const didUseInitial = useRef(!!initialData);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -82,17 +100,17 @@ export function Dashboard({ initialYear, initialMonth }: DashboardProps) {
   }, [year, month]);
 
   useEffect(() => {
-    // Load budget data when year or month changes
+    if (didUseInitial.current) {
+      didUseInitial.current = false;
+      return;
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
   }, [loadData]);
 
   // Refresh data after mutations
   function refreshData() {
-    startTransition(() => {
-      router.refresh();
-      loadData();
-    });
+    startTransition(() => loadData());
   }
 
   // Optimistic update for allocation
@@ -131,6 +149,21 @@ export function Dashboard({ initialYear, initialMonth }: DashboardProps) {
       }
       return prev;
     });
+  }
+
+  async function handleCopyPreviousMonth() {
+    if (!budgetMonth) return;
+    setIsCopying(true);
+    const result = await copyAllocationsFromPreviousMonthForBudget(budgetMonth.id);
+    setIsCopying(false);
+
+    if (result?.error) {
+      toast.error("Copy failed", { description: result.error });
+      return;
+    }
+
+    toast.success("Copied previous month allocations");
+    refreshData();
   }
 
   if (loading) {
@@ -203,6 +236,15 @@ export function Dashboard({ initialYear, initialMonth }: DashboardProps) {
                   onClick={() => setShowSavingsDialog(true)}
                 >
                   Adjust Savings
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 sm:flex-none text-xs sm:text-sm"
+                  onClick={handleCopyPreviousMonth}
+                  disabled={isCopying}
+                >
+                  {isCopying ? "Copying..." : "Copy Last Month"}
                 </Button>
               </div>
             )}

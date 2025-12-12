@@ -1,5 +1,8 @@
 import { Dashboard } from "@/components/budget/dashboard";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getBudgetMonth } from "@/app/actions/budget";
+import { getCategories } from "@/app/actions/categories";
+import { getUserProfile } from "@/app/actions/auth";
 
 interface PageProps {
   params: Promise<{
@@ -26,5 +29,21 @@ export default async function HistoricalBudgetPage({ params }: PageProps) {
     notFound();
   }
 
-  return <Dashboard initialYear={yearNum} initialMonth={monthNum} />;
+  const [profile, budgetMonth, categories] = await Promise.all([
+    getUserProfile(),
+    getBudgetMonth(yearNum, monthNum),
+    getCategories(),
+  ]);
+
+  if (!profile) {
+    redirect("/login");
+  }
+
+  return (
+    <Dashboard
+      initialYear={yearNum}
+      initialMonth={monthNum}
+      initialData={{ profile, budgetMonth: budgetMonth as never, categories }}
+    />
+  );
 }

@@ -11,6 +11,7 @@ A modern, responsive monthly budgeting web app built with Next.js, Supabase, and
 - **Historical Tracking**: View past months (read-only) and track trends over time
 - **Insights & Statistics**: Visualize spending patterns with charts and aggregated data
 - **Multi-Currency Support**: SLE (default), USD, GBP, EUR, NGN
+- **Account Settings**: Change preferred currency and reset password
 - **Dark/Light Mode**: Toggle between themes
 
 ## Tech Stack
@@ -58,6 +59,9 @@ npx prisma generate
 
 # Run database migrations
 npx prisma migrate dev
+
+# Optional: seed a demo user (requires SEED_USER_ID + SEED_EMAIL)
+npm run seed
 
 # Start development server
 npm run dev
